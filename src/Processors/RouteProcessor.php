@@ -108,19 +108,27 @@ class RouteProcessor
                 ];
 
                 if ($this->config['structured']) {
-                    $routeNameSegments = (
-                        $route->getName()
-                            ? Str::of($route->getName())->explode('.')
-                            : Str::of($route->uri())->after('api/')->explode('/')
-                    )->filter(fn ($value) => ! is_null($value) && $value !== '');
+                    $routeUri = Str::of($route->uri())->after('api/');
 
+                    $segments = collect(explode('/', $routeUri))
+                        ->filter(fn ($value) => !is_null($value) && $value !== '')
+                        ->reject(fn ($segment) => Str::startsWith($segment, '{') && Str::endsWith($segment, '}')) // remove {item}, {user}, etc.
+                        ->values();
+
+                    // Optional: map to method names if the route has a name
                     if (! $this->config['crud_folders']) {
-                        if (in_array($routeNameSegments->last(), ['index', 'store', 'show', 'update', 'destroy'])) {
-                            $routeNameSegments->forget($routeNameSegments->count() - 1);
+                        if ($route->getName()) {
+                            $action = Str::of($route->getName())->explode('.')->last();
+                            if (in_array($action, ['index', 'store', 'show', 'update', 'destroy'])) {
+                                $segments->push($this->mapActionName($action));
+                            }
+                        } else {
+                            // fallback: use HTTP verb
+                            $segments->push($route->methods()[0]);
                         }
                     }
 
-                    $this->buildTree($this->output, $routeNameSegments->all(), $data);
+                    $this->buildTree($this->output, $segments->all(), $data);
                 } else {
                     $this->output['item'][] = $data;
                 }
@@ -339,5 +347,17 @@ class RouteProcessor
         }
 
         return (string) $probableRule;
+    }
+
+    protected function mapActionName($action)
+    {
+        return match ($action) {
+            'index' => 'index',
+            'store' => 'store',
+            'show' => 'show',
+            'update' => 'update',
+            'destroy' => 'delete',
+            default => $action,
+        };
     }
 }
