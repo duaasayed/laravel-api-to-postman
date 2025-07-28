@@ -1,5 +1,5 @@
 {
-    "name": "andreaselia/laravel-api-to-postman",
+    "name": "duaasayed/laravel-api-to-postman",
     "description": "Generate a Postman collection automatically from your Laravel API",
     "keywords": [
         "laravel",
